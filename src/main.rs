@@ -6,24 +6,28 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
-// use base64::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use tower_http::limit::RequestBodyLimitLayer;
 use typst::foundations::{Bytes, Dict, IntoValue};
 use typst_as_lib::TypstEngine;
 
-static FONT: &[u8] = include_bytes!("./fonts/texgyrecursor-regular.otf");
-
 #[tokio::main]
 async fn main() {
+    let host = std::env::var("HOST").unwrap_or("0.0.0.0".to_string());
+    let port = std::env::var("PORT").unwrap_or("3009".to_string());
+
+    println!("typst-server running on http://{}:{}", host, port);
+
     let app = Router::new()
         .route("/", post(create_pdf))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
             250 * 1024 * 1024, /* 250mb */
         ));
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3009").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -31,10 +35,11 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     let mut template_content = None;
     let mut json_data = None;
     let mut data_map: HashMap<String, Bytes> = HashMap::new();
+    let mut fonts: Vec<Bytes> = Vec::new();
 
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
-        // let file_name = field.file_name().unwrap_or("").to_string();
+        let file_name = field.file_name().unwrap_or("").to_string();
         // let content_type = field.content_type().unwrap_or("").to_string();
         let data = field.bytes().await.unwrap(); // Handle as bytes
 
@@ -49,11 +54,9 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
                 }
             }
         } else if name.starts_with("data:") {
-            // Base64 encode the file content
-            // let encoded = BASE64_STANDARD.encode(data);
-            // println!("Encoded: {}", encoded);
-            // data_map.insert(name.clone(), encoded);
             data_map.insert(name.clone(), Bytes::new(data));
+        } else if file_name.ends_with(".otf") {
+            fonts.push(Bytes::new(data));
         }
     }
 
@@ -67,14 +70,11 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         None => return (StatusCode::BAD_REQUEST, "No data provided").into_response(),
     };
 
-    // Convert JSON to Typst Dict, injecting base64-encoded data
     let typst_data = json_to_typst_value(data, &data_map);
-
-    println!("Typst data: {:?}", typst_data);
 
     let template = TypstEngine::builder()
         .main_file(template_string)
-        .fonts([FONT])
+        .fonts(fonts)
         .build();
 
     let doc = template
@@ -129,7 +129,6 @@ fn json_value_to_typst_value(
             }
         }
         Value::String(s) => {
-            println!("VALUE: {}", s);
             if let Some(bytes) = data_map.get(&s) {
                 bytes.clone().into_value()
             } else {

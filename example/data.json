@@ -1,14 +1,14 @@
 {
-  "v": [
+  "items": [
     {
-      "heading": "Foo",
-      "text": "Hello Monde!",
+      "heading": "First Item",
+      "text": "Hello World!",
       "num1": 1,
       "num2": 42,
       "image": "data:typst_logo"
     },
     {
-      "heading": "Bar",
+      "heading": "Second Item",
       "num1": 2,
       "num2": null,
       "text": null,

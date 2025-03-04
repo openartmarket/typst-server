@@ -3,10 +3,10 @@
 #set page(paper: "a4")
 #set text(font: "TeX Gyre Cursor", 11pt)
 
-#let content = inputs.v
-#let last_index = content.len() - 1
+#let item = inputs.items
+#let last_index = item.len() - 1
 
-#for (i, elem) in content.enumerate() [
+#for (i, elem) in item.enumerate() [
   == #elem.heading
   Text: #elem.text \
   Num1: #elem.num1 \
