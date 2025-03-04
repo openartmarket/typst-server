@@ -6,15 +6,12 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
-use derive_typst_intoval::{IntoDict, IntoValue};
-use serde::Deserialize;
+use serde_json::Value;
 use tower_http::limit::RequestBodyLimitLayer;
-use typst::foundations::{Bytes, Dict, IntoValue};
+use typst::foundations::{Dict, IntoValue};
 use typst_as_lib::TypstEngine;
 
-// static TEMPLATE_FILE: &str = include_str!("./templates/template.typ");
 static FONT: &[u8] = include_bytes!("./fonts/texgyrecursor-regular.otf");
-static IMAGE: &[u8] = include_bytes!("./templates/images/typst.png");
 
 #[tokio::main]
 async fn main() {
@@ -30,17 +27,20 @@ async fn main() {
 
 async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     let mut template_content = None;
+    let mut json_data = None;
 
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let data = field.text().await.unwrap();
 
-        // Store the template content if the field name is "template"
         if name == "template" {
             template_content = Some(data);
         } else if name == "data" {
-            // Optionally parse JSON data if you're sending that too
-            // input_data = Some(serde_json::from_str(&data).unwrap());
+            // Parse the JSON data
+            match serde_json::from_str::<Value>(&data) {
+                Ok(parsed_data) => json_data = Some(parsed_data),
+                Err(e) => return (StatusCode::BAD_REQUEST, format!("Invalid JSON data: {}", e)).into_response(),
+            }
         }
     }
 
@@ -50,15 +50,24 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         None => return (StatusCode::BAD_REQUEST, "No template provided").into_response(),
     };
 
+    // Check if we received data
+    let data = match json_data {
+        Some(data) => data,
+        None => return (StatusCode::BAD_REQUEST, "No data provided").into_response(),
+    };
+
+    // Convert serde_json::Value to typst::Dict
+    let typst_data = json_to_typst_value(data);
+
     // Build the template with the received content
     let template = TypstEngine::builder()
-        .main_file(template_string) // Use main_content instead of main_file
+        .main_file(template_string)
         .fonts([FONT])
         .build();
 
-    // Run it
+    // Run it with the JSON data
     let doc = template
-        .compile_with_input(dummy_data()) // or use input_data if you parsed it
+        .compile_with_input(typst_data)
         .output
         .expect("typst::compile() returned an error!");
 
@@ -73,49 +82,54 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         .unwrap()
 }
 
-#[derive(Deserialize, Debug)]
-#[allow(dead_code)]
-struct Input {
-    template: String,
-}
-
-#[derive(Debug, Clone, IntoValue, IntoDict)]
-struct Content {
-    v: Vec<ContentElement>,
-}
-
-// Implement Into<Dict> manually, so we can just pass the struct
-// to the compile function.
-impl From<Content> for Dict {
-    fn from(value: Content) -> Self {
-        value.into_dict()
+// Convert serde_json::Value to typst::Value
+fn json_to_typst_value(value: Value) -> Dict {
+    match value {
+        Value::Object(map) => {
+            let mut dict = Dict::new();
+            for (k, v) in map {
+                dict.insert(k.into(), json_value_to_typst_value(v));
+            }
+            dict
+        },
+        _ => {
+            // If the root isn't an object, create a dict with a single value
+            let mut dict = Dict::new();
+            dict.insert("data".into(), json_value_to_typst_value(value));
+            dict
+        }
     }
 }
 
-#[derive(Debug, Clone, Default, IntoValue, IntoDict)]
-struct ContentElement {
-    heading: String,
-    text: Option<String>,
-    num1: i32,
-    num2: Option<i32>,
-    image: Option<Bytes>,
-}
+fn json_value_to_typst_value(value: Value) -> typst::foundations::Value {
+    use typst::foundations::{Array, Value as TypstValue};
 
-fn dummy_data() -> Content {
-    Content {
-        v: vec![
-            ContentElement {
-                heading: "Foo".to_owned(),
-                text: Some("Hello World!".to_owned()),
-                num1: 1,
-                num2: Some(42),
-                image: Some(Bytes::new(IMAGE.to_vec())),
-            },
-            ContentElement {
-                heading: "Bar".to_owned(),
-                num1: 2,
-                ..Default::default()
-            },
-        ],
+    match value {
+        Value::Null => TypstValue::None,
+        Value::Bool(b) => b.into_value(),
+        Value::Number(n) => {
+            if n.is_i64() {
+                n.as_i64().unwrap().into_value()
+            } else if n.is_u64() {
+                n.as_u64().unwrap().into_value()
+            } else {
+                n.as_f64().unwrap().into_value()
+            }
+        },
+        Value::String(s) => s.into_value(),
+        Value::Array(arr) => {
+            let mut typst_arr = Array::new();
+            for item in arr {
+                typst_arr.push(json_value_to_typst_value(item));
+            }
+            TypstValue::Array(typst_arr)
+        },
+        Value::Object(map) => {
+            let mut dict = Dict::new();
+            for (k, v) in map {
+                dict.insert(k.into(), json_value_to_typst_value(v));
+            }
+            TypstValue::Dict(dict)
+        }
     }
 }

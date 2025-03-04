@@ -13,3 +13,4 @@ typst-kit = "0.13.0"
 derive_typst_intoval = "0.3.0"
 typst-as-lib = "0.14.1"
 tower-http = { version = "0.6.1", features = ["limit", "trace"] }
+serde_json = "1.0.140"

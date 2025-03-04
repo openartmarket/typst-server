@@ -14,6 +14,7 @@ A server for generating PDFs using Typst.
 
     curl -X POST http://localhost:3009/ \
       -F template=@./src/templates/template.typ \
+      -F data=@./src/templates/data.json \
       > test.pdf
 
 Open the PDF:

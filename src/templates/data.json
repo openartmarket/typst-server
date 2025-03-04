@@ -1,0 +1,18 @@
+{
+  "v": [
+    {
+      "heading": "Foo",
+      "text": "Hello Monde!",
+      "num1": 1,
+      "num2": 42,
+      "image": null
+    },
+    {
+      "heading": "Bar",
+      "num1": 2,
+      "num2": null,
+      "text": null,
+      "image": null
+    }
+  ]
+}

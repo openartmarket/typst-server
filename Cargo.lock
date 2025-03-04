@@ -2975,6 +2975,7 @@ dependencies = [
  "axum",
  "derive_typst_intoval",
  "serde",
+ "serde_json",
  "tokio",
  "tower-http",
  "typst 0.13.0",
