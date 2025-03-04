@@ -1,12 +1,14 @@
 use axum::{
-    Json, Router,
+    Router,
     body::Body,
+    extract::{DefaultBodyLimit, Multipart},
     http::{Response, StatusCode},
     response::IntoResponse,
     routing::post,
 };
 use derive_typst_intoval::{IntoDict, IntoValue};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use tower_http::limit::RequestBodyLimitLayer;
 use typst::foundations::{Bytes, Dict, IntoValue};
 use typst_as_lib::TypstEngine;
 
@@ -16,33 +18,31 @@ static IMAGE: &[u8] = include_bytes!("./templates/images/typst.png");
 
 #[tokio::main]
 async fn main() {
-    // build our application with a route
-    let app = Router::new().route("/", post(create_pdf));
-
-    // run our app with hyper, listening globally on port 3000
+    let app = Router::new()
+        .route("/", post(create_pdf))
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(
+            250 * 1024 * 1024, /* 250mb */
+        ));
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3009").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn create_pdf(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
-    Json(payload): Json<CreateUser>,
-) -> impl IntoResponse {
-    // insert your application logic here
-    // let user = User {
-    //     id: 1337,
-    //     username: payload.username,
-    // };
-    println!("payload: {:?}", payload);
+async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let name = field.name().unwrap().to_string();
+        let file_name = field.file_name().unwrap().to_string();
+        let content_type = field.content_type().unwrap().to_string();
+        let data = field.text().await.unwrap();
 
-    // Read in fonts and the main source file.
-    // We can use this template more than once, if needed (Possibly
-    // with different input each time).
-    let template = TypstEngine::builder()
-        .main_file(TEMPLATE_FILE)
-        .fonts([FONT])
-        .build();
+        println!(
+            "Length of `{name}` (`{file_name}`: `{content_type}`) is {} bytes",
+            data.len()
+        );
+    }
+
+    // Build the template after the loop
+    let template =  TypstEngine::builder().main_file(TEMPLATE_FILE).fonts([FONT]).build();
 
     // Run it
     let doc = template
@@ -59,22 +59,12 @@ async fn create_pdf(
         .header("Content-Type", "application/pdf")
         .body(Body::from(pdf))
         .unwrap()
-    // this will be converted into a JSON response
-    // with a status code of `201 Created`
-    // (StatusCode::CREATED, Json(user))
 }
 
-// the input to our `create_user` handler
 #[derive(Deserialize, Debug)]
-struct CreateUser {
-    username: String,
-}
-
-// the output to our `create_user` handler
-#[derive(Serialize, Debug)]
-struct User {
-    id: u64,
-    username: String,
+#[allow(dead_code)]
+struct Input {
+    template: String,
 }
 
 #[derive(Debug, Clone, IntoValue, IntoDict)]
