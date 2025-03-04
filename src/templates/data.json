@@ -5,7 +5,7 @@
       "text": "Hello Monde!",
       "num1": 1,
       "num2": 42,
-      "image": null
+      "image": "data:typst_logo"
     },
     {
       "heading": "Bar",

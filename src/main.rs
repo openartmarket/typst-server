@@ -6,9 +6,11 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
+// use base64::prelude::*;
 use serde_json::Value;
+use std::collections::HashMap;
 use tower_http::limit::RequestBodyLimitLayer;
-use typst::foundations::{Dict, IntoValue};
+use typst::foundations::{Bytes, Dict, IntoValue};
 use typst_as_lib::TypstEngine;
 
 static FONT: &[u8] = include_bytes!("./fonts/texgyrecursor-regular.otf");
@@ -28,50 +30,58 @@ async fn main() {
 async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     let mut template_content = None;
     let mut json_data = None;
+    let mut data_map: HashMap<String, Bytes> = HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
-        let data = field.text().await.unwrap();
+        // let file_name = field.file_name().unwrap_or("").to_string();
+        // let content_type = field.content_type().unwrap_or("").to_string();
+        let data = field.bytes().await.unwrap(); // Handle as bytes
 
         if name == "template" {
-            template_content = Some(data);
+            template_content = Some(String::from_utf8_lossy(&data).to_string());
         } else if name == "data" {
-            // Parse the JSON data
-            match serde_json::from_str::<Value>(&data) {
+            match serde_json::from_slice::<Value>(&data) {
                 Ok(parsed_data) => json_data = Some(parsed_data),
-                Err(e) => return (StatusCode::BAD_REQUEST, format!("Invalid JSON data: {}", e)).into_response(),
+                Err(e) => {
+                    return (StatusCode::BAD_REQUEST, format!("Invalid JSON data: {}", e))
+                        .into_response();
+                }
             }
+        } else if name.starts_with("data:") {
+            // Base64 encode the file content
+            // let encoded = BASE64_STANDARD.encode(data);
+            // println!("Encoded: {}", encoded);
+            // data_map.insert(name.clone(), encoded);
+            data_map.insert(name.clone(), Bytes::new(data));
         }
     }
 
-    // Check if we received a template
     let template_string = match template_content {
         Some(content) => content,
         None => return (StatusCode::BAD_REQUEST, "No template provided").into_response(),
     };
 
-    // Check if we received data
     let data = match json_data {
         Some(data) => data,
         None => return (StatusCode::BAD_REQUEST, "No data provided").into_response(),
     };
 
-    // Convert serde_json::Value to typst::Dict
-    let typst_data = json_to_typst_value(data);
+    // Convert JSON to Typst Dict, injecting base64-encoded data
+    let typst_data = json_to_typst_value(data, &data_map);
 
-    // Build the template with the received content
+    println!("Typst data: {:?}", typst_data);
+
     let template = TypstEngine::builder()
         .main_file(template_string)
         .fonts([FONT])
         .build();
 
-    // Run it with the JSON data
     let doc = template
         .compile_with_input(typst_data)
         .output
         .expect("typst::compile() returned an error!");
 
-    // Create pdf
     let options = Default::default();
     let pdf = typst_pdf::pdf(&doc, &options).expect("Could not generate pdf.");
 
@@ -82,26 +92,28 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         .unwrap()
 }
 
-// Convert serde_json::Value to typst::Value
-fn json_to_typst_value(value: Value) -> Dict {
+// Convert serde_json::Value to typst::Dict, replacing "data:*" strings with base64 values
+fn json_to_typst_value(value: Value, data_map: &HashMap<String, Bytes>) -> Dict {
     match value {
         Value::Object(map) => {
             let mut dict = Dict::new();
             for (k, v) in map {
-                dict.insert(k.into(), json_value_to_typst_value(v));
+                dict.insert(k.into(), json_value_to_typst_value(v, data_map));
             }
             dict
-        },
+        }
         _ => {
-            // If the root isn't an object, create a dict with a single value
             let mut dict = Dict::new();
-            dict.insert("data".into(), json_value_to_typst_value(value));
+            dict.insert("data".into(), json_value_to_typst_value(value, data_map));
             dict
         }
     }
 }
 
-fn json_value_to_typst_value(value: Value) -> typst::foundations::Value {
+fn json_value_to_typst_value(
+    value: Value,
+    data_map: &HashMap<String, Bytes>,
+) -> typst::foundations::Value {
     use typst::foundations::{Array, Value as TypstValue};
 
     match value {
@@ -115,19 +127,26 @@ fn json_value_to_typst_value(value: Value) -> typst::foundations::Value {
             } else {
                 n.as_f64().unwrap().into_value()
             }
-        },
-        Value::String(s) => s.into_value(),
+        }
+        Value::String(s) => {
+            println!("VALUE: {}", s);
+            if let Some(bytes) = data_map.get(&s) {
+                bytes.clone().into_value()
+            } else {
+                s.into_value()
+            }
+        }
         Value::Array(arr) => {
             let mut typst_arr = Array::new();
             for item in arr {
-                typst_arr.push(json_value_to_typst_value(item));
+                typst_arr.push(json_value_to_typst_value(item, data_map));
             }
             TypstValue::Array(typst_arr)
-        },
+        }
         Value::Object(map) => {
             let mut dict = Dict::new();
             for (k, v) in map {
-                dict.insert(k.into(), json_value_to_typst_value(v));
+                dict.insert(k.into(), json_value_to_typst_value(v, data_map));
             }
             TypstValue::Dict(dict)
         }
