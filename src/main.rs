@@ -12,7 +12,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use typst::foundations::{Bytes, Dict, IntoValue};
 use typst_as_lib::TypstEngine;
 
-static TEMPLATE_FILE: &str = include_str!("./templates/template.typ");
+// static TEMPLATE_FILE: &str = include_str!("./templates/template.typ");
 static FONT: &[u8] = include_bytes!("./fonts/texgyrecursor-regular.otf");
 static IMAGE: &[u8] = include_bytes!("./templates/images/typst.png");
 
@@ -29,24 +29,36 @@ async fn main() {
 }
 
 async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
+    let mut template_content = None;
+
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
-        let file_name = field.file_name().unwrap().to_string();
-        let content_type = field.content_type().unwrap().to_string();
         let data = field.text().await.unwrap();
 
-        println!(
-            "Length of `{name}` (`{file_name}`: `{content_type}`) is {} bytes",
-            data.len()
-        );
+        // Store the template content if the field name is "template"
+        if name == "template" {
+            template_content = Some(data);
+        } else if name == "data" {
+            // Optionally parse JSON data if you're sending that too
+            // input_data = Some(serde_json::from_str(&data).unwrap());
+        }
     }
 
-    // Build the template after the loop
-    let template =  TypstEngine::builder().main_file(TEMPLATE_FILE).fonts([FONT]).build();
+    // Check if we received a template
+    let template_string = match template_content {
+        Some(content) => content,
+        None => return (StatusCode::BAD_REQUEST, "No template provided").into_response(),
+    };
+
+    // Build the template with the received content
+    let template = TypstEngine::builder()
+        .main_file(template_string) // Use main_content instead of main_file
+        .fonts([FONT])
+        .build();
 
     // Run it
     let doc = template
-        .compile_with_input(dummy_data())
+        .compile_with_input(dummy_data()) // or use input_data if you parsed it
         .output
         .expect("typst::compile() returned an error!");
 
