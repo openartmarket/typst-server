@@ -5,7 +5,7 @@
       "text": "Hello World!",
       "num1": 1,
       "num2": 42,
-      "image": "data:typst_logo"
+      "image": "typst.png"
     },
     {
       "heading": "Second Item",

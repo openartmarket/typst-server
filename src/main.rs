@@ -40,7 +40,7 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let file_name = field.file_name().unwrap_or("").to_string();
-        // let content_type = field.content_type().unwrap_or("").to_string();
+        let content_type = field.content_type().unwrap_or("").to_string();
         let data = field.bytes().await.unwrap(); // Handle as bytes
 
         if name == "template" {
@@ -53,7 +53,7 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
                         .into_response();
                 }
             }
-        } else if name.starts_with("data:") {
+        } else if content_type == "image/png" {
             data_map.insert(name.clone(), Bytes::new(data));
         } else if file_name.ends_with(".otf") {
             fonts.push(Bytes::new(data));
