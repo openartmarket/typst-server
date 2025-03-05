@@ -41,7 +41,7 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         let name = field.name().unwrap().to_string();
         let file_name = field.file_name().unwrap_or("").to_string();
         let content_type = field.content_type().unwrap_or("").to_string();
-        let data = field.bytes().await.unwrap(); // Handle as bytes
+        let data = field.bytes().await.unwrap();
 
         if name == "template" {
             template_content = Some(String::from_utf8_lossy(&data).to_string());
@@ -76,9 +76,6 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
 
     let typst_data = json_to_typst_value(data, &data_map);
 
-    println!("typst_data: {:?}", typst_data);
-    println!("template_string: {:?}", template_string);
-
     let template = TypstEngine::builder()
         .main_file(template_string)
         .search_fonts_with(
@@ -90,13 +87,16 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
         .fonts(fonts)
         .build();
 
-    let doc = template
-        .compile_with_input(typst_data)
-        .output
-        .expect("typst::compile() returned an error!");
+    let doc = match template.compile_with_input(typst_data).output {
+        Ok(doc) => doc,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e)).into_response(),
+    };
 
     let options = Default::default();
-    let pdf = typst_pdf::pdf(&doc, &options).expect("Could not generate pdf.");
+    let pdf = match typst_pdf::pdf(&doc, &options) {
+        Ok(pdf) => pdf,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e)).into_response(),
+    };
 
     Response::builder()
         .status(StatusCode::OK)
