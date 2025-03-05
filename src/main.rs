@@ -1,11 +1,14 @@
 use axum::{
     Router,
     body::Body,
+    extract::Request,
     extract::{DefaultBodyLimit, Multipart},
-    http::{Response, StatusCode},
+    http::{Response, StatusCode, header::AUTHORIZATION},
+    middleware::{self, Next},
     response::IntoResponse,
     routing::post,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde_json::Value;
 use std::collections::HashMap;
 use tower_http::limit::RequestBodyLimitLayer;
@@ -21,6 +24,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", post(create_pdf))
+        .layer(middleware::from_fn(auth_middleware))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
             250 * 1024 * 1024, /* 250mb */
@@ -29,6 +33,37 @@ async fn main() {
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn auth_middleware(
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response<Body>, (StatusCode, &'static str)> {
+    let token = std::env::var("TYPST_SERVER_TOKEN").map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "TYPST_SERVER_TOKEN is not defined",
+        )
+    })?;
+
+    let auth_header = request
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        .ok_or((StatusCode::UNAUTHORIZED, "Missing Authorization header"))?;
+
+    if !auth_header.starts_with("Basic ") {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization format"));
+    }
+
+    let expected = BASE64.encode(format!(":{}", token));
+    let provided = auth_header.trim_start_matches("Basic ").trim();
+
+    if provided != expected {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid credentials"));
+    }
+
+    Ok(next.run(request).await)
 }
 
 async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {

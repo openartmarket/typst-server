@@ -9,6 +9,9 @@ The `POST /` endpoint accepts a multipart/form-data request with the following f
 - `file=*.otf`: Font file. Can be multiple.
 - `file=*.png`: Image file. Can be multiple.
 
+The server expects Basic Auth credentials with a blank username
+and the password equal to `$TYPST_SERVER_TOKEN` defined on startup.
+
 The server does not write any files to disk.
 Because of this, the [#image](https://typst.app/docs/reference/visualize/image/) function
 is passed `bytes` instead of the `str` path from the `data.json` file.
@@ -22,7 +25,7 @@ as long as the form field name is the same as the value in the `data.json` file.
 
 ## Run
 
-    PORT=3010 ./target/release/typst-server
+    PORT=3010 TYPST_SERVER_TOKEN=s3cr3t ./target/release/typst-server
 
 ## Example
 
@@ -33,6 +36,7 @@ as long as the form field name is the same as the value in the `data.json` file.
 
     # Compile with typst-server
     curl -X POST http://localhost:3010/ \
+      --user ":s3cr3t" \
       -F template=@template.typ \
       -F data=@data.json \
       -F typst.png=@typst.png \
