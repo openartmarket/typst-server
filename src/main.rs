@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tower_http::limit::RequestBodyLimitLayer;
 use typst::foundations::{Bytes, Dict, IntoValue};
-use typst_as_lib::TypstEngine;
+use typst_as_lib::{TypstEngine, typst_kit_options::TypstKitFontOptions};
 
 #[tokio::main]
 async fn main() {
@@ -81,6 +81,12 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
 
     let template = TypstEngine::builder()
         .main_file(template_string)
+        .search_fonts_with(
+            TypstKitFontOptions::default()
+                .include_system_fonts(true)
+                // This line is not necessary, because thats the default.
+                .include_embedded_fonts(true),
+        )
         .fonts(fonts)
         .build();
 

@@ -1,5 +1,5 @@
 #set page(paper: "a4")
-#set text(font: "TeX Gyre Cursor", 11pt)
+// #set text(font: "TeX Gyre Cursor", 11pt)
 
 
 #let data = sys.inputs

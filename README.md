@@ -36,7 +36,6 @@ as long as the form field name is the same as the value in the `data.json` file.
       -F template=@template.typ \
       -F data=@data.json \
       -F typst.png=@typst.png \
-      -F font=@texgyrecursor-regular.otf \
       > template.pdf
 
 Open the PDF:

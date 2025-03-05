@@ -11,7 +11,7 @@ typst = "0.13.0"
 typst-pdf = "0.13.0"
 typst-kit = "0.13.0"
 derive_typst_intoval = "0.3.0"
-typst-as-lib = "0.14.1"
+typst-as-lib = { version = "0.14.1", features = ["typst-kit-fonts", "typst-kit-embed-fonts"] }
 tower-http = { version = "0.6.1", features = ["limit", "trace"] }
 serde_json = "1.0.140"
 
