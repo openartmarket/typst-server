@@ -2,8 +2,8 @@
 #set text(font: "TeX Gyre Cursor", 11pt)
 
 
-// #let data = sys.inputs
-#let data = json(sys.inputs.at("data", default: "./data.json"))
+#let data = sys.inputs
+// #let data = json(sys.inputs.at("data", default: "./data.json"))
 
 #let last_index = data.items.len() - 1
 

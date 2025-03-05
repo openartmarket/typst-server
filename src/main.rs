@@ -53,9 +53,13 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
                         .into_response();
                 }
             }
-        } else if content_type == "image/png" {
+        } else if content_type == "image/png"
+            || content_type == "image/jpeg"
+            || content_type == "image/gif"
+            || content_type == "image/svg+xml"
+        {
             data_map.insert(name.clone(), Bytes::new(data));
-        } else if file_name.ends_with(".otf") {
+        } else if file_name.ends_with(".otf") || file_name.ends_with(".ttf") {
             fonts.push(Bytes::new(data));
         }
     }
@@ -71,6 +75,9 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     };
 
     let typst_data = json_to_typst_value(data, &data_map);
+
+    println!("typst_data: {:?}", typst_data);
+    println!("template_string: {:?}", template_string);
 
     let template = TypstEngine::builder()
         .main_file(template_string)

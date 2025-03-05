@@ -29,7 +29,7 @@ as long as the form field name is the same as the value in the `data.json` file.
     cd example
 
     # Compile with typst CLI
-    typst compile -f pdf template.typ --font-path .
+    typst compile template.typ --font-path .
 
     # Compile with typst-server
     curl -X POST http://localhost:3010/ \
