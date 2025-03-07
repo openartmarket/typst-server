@@ -16,7 +16,7 @@ The server does not write any files to disk.
 Because of this, the [#image](https://typst.app/docs/reference/visualize/image/) function
 is passed `bytes` instead of the `str` path from the `data.json` file.
 
-This replacement of the `str` path with `bytes` is done ny the server
+This replacement of the `str` path with `bytes` is done by the server
 as long as the form field name is the same as the value in the `data.json` file.
 
 ## Build
