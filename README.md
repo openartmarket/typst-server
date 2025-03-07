@@ -40,6 +40,7 @@ as long as the form field name is the same as the value in the `data.json` file.
       -F template=@template.typ \
       -F data=@data.json \
       -F typst.png=@typst.png \
+      -F font=@texgyrecursor-regular.otf \
       > template.pdf
 
 Open the PDF:
@@ -60,3 +61,15 @@ When you are ready to use it from `typst-server`, load the data like this:
 ```typ
 #let data = sys.inputs
 ```
+
+## Docker
+
+Using Docker Compose:
+
+    docker compose build
+    docker compose up
+
+Vanilla build:
+
+    docker build --progress=plain -t typst-server .
+

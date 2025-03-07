@@ -5,4 +5,6 @@ services:
       - "3009:3009"
     volumes:
       - .:/app
+    environment:
+      - TYPST_SERVER_TOKEN=${TYPST_SERVER_TOKEN:-s3cr3t}
     restart: unless-stopped

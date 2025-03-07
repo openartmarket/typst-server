@@ -4,17 +4,16 @@ WORKDIR /app
 
 # Copy source code and build
 COPY . .
-# RUN cargo build --release
-RUN cargo build
+RUN cargo build --release
 
 RUN ls -la /app/target/release
 
 # Runtime stage
-FROM alpine:latest
+FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
-# Install dependencies if needed (glibc compatibility, etc.)
-# RUN apk add --no-cache libc6-compat
+# Install OpenSSL 3
+RUN apt-get update && apt-get install -y libssl3 && ldconfig
 
 # Copy the built binary
 COPY --from=builder /app/target/release/typst-server /usr/local/bin/typst-server
