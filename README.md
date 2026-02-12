@@ -25,7 +25,7 @@ as long as the form field name is the same as the value in the `data.json` file.
 
 ## Run
 
-    PORT=3010 TYPST_SERVER_TOKEN=s3cr3t ./target/release/typst-server
+    PORT=3009 TYPST_SERVER_TOKEN=s3cr3t ./target/release/typst-server
 
 ## Example
 
@@ -35,7 +35,7 @@ as long as the form field name is the same as the value in the `data.json` file.
     typst compile template.typ --font-path .
 
     # Compile with typst-server
-    curl -X POST http://localhost:3010/ \
+    curl -X POST http://localhost:3009/ \
       --user ":s3cr3t" \
       -F template=@template.typ \
       -F data=@data.json \
