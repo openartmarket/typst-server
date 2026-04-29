@@ -2,17 +2,21 @@
 
 A server for generating PDFs using Typst.
 
-The `POST /` endpoint accepts a multipart/form-data request with the following fields:
+The `POST /` endpoint accepts a multipart/form-data request. Every part is `-F <field-name>=@<file>` — the difference between part kinds is how the server identifies them:
 
-- `name=template`: Typst template.
-- `name=data`: JSON data file.
-- `file=*.otf`: Font file. Can be multiple.
-- `file=*.png`: Image file. Can be multiple.
-- `file=*.typ`: Additional Typst source file. The uploaded `filename` is the path that `#import "…"` resolves against (forward-slash paths like `lib/util.typ` are preserved). Can be multiple. The form-field name is not significant.
+| Part                       | Identified by                                  | Required | Multiple |
+|----------------------------|------------------------------------------------|----------|----------|
+| Main Typst template        | field name `template`                          | yes      | no       |
+| JSON data (→ `sys.inputs`) | field name `data`                              | yes      | no       |
+| Image                      | content-type `image/png`,`image/jpeg`,`image/gif`,`image/svg+xml`; the field name is the lookup key in `data` (replaced with the image bytes) | no | yes |
+| Font                       | filename ends in `.otf` or `.ttf`              | no       | yes      |
+| Additional Typst source    | filename ends in `.typ` (and field name isn't `template`); the filename is the `#import "…"` path | no | yes |
 
-When sending nested import paths from a browser, build the multipart body
-programmatically (e.g. `FormData.append("file", blob, "lib/util.typ")`).
-Browsers strip directory components from `<input type=file>` filenames per RFC 7578.
+Forward-slash paths in additional `.typ` filenames (e.g. `lib/util.typ`) are
+preserved, so `#import "lib/util.typ"` works. To send nested paths from a
+browser, build the multipart body programmatically
+(`FormData.append("any-name", blob, "lib/util.typ")`); browsers strip
+directory components from `<input type=file>` filenames per RFC 7578.
 
 The server expects Basic Auth credentials with a blank username
 and the password equal to `$TYPST_SERVER_TOKEN` defined on startup.
