@@ -71,6 +71,7 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
     let mut json_data = None;
     let mut data_map: HashMap<String, Bytes> = HashMap::new();
     let mut fonts: Vec<Bytes> = Vec::new();
+    let mut additional_sources: HashMap<String, String> = HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
@@ -96,6 +97,11 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
             data_map.insert(name.clone(), Bytes::new(data));
         } else if file_name.ends_with(".otf") || file_name.ends_with(".ttf") {
             fonts.push(Bytes::new(data));
+        } else if file_name.ends_with(".typ") {
+            additional_sources.insert(
+                file_name.clone(),
+                String::from_utf8_lossy(&data).to_string(),
+            );
         }
     }
 
@@ -113,6 +119,11 @@ async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {
 
     let template = TypstEngine::builder()
         .main_file(template_string)
+        .with_static_source_file_resolver(
+            additional_sources
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.clone())),
+        )
         .search_fonts_with(
             TypstKitFontOptions::default()
                 .include_system_fonts(true)

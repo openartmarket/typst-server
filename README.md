@@ -8,6 +8,11 @@ The `POST /` endpoint accepts a multipart/form-data request with the following f
 - `name=data`: JSON data file.
 - `file=*.otf`: Font file. Can be multiple.
 - `file=*.png`: Image file. Can be multiple.
+- `file=*.typ`: Additional Typst source file. The uploaded `filename` is the path that `#import "…"` resolves against (forward-slash paths like `lib/util.typ` are preserved). Can be multiple. The form-field name is not significant.
+
+When sending nested import paths from a browser, build the multipart body
+programmatically (e.g. `FormData.append("file", blob, "lib/util.typ")`).
+Browsers strip directory components from `<input type=file>` filenames per RFC 7578.
 
 The server expects Basic Auth credentials with a blank username
 and the password equal to `$TYPST_SERVER_TOKEN` defined on startup.
