@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8.8", features = ["multipart"] }
-tokio = { version = "1.49.0", features = ["full"] }
+axum = { version = "0.8.9", features = ["multipart"] }
+tokio = { version = "1.52.1", features = ["full"] }
 serde = { version = "1.0.228", features = ["derive"] }
 typst = "0.14.2"
 typst-pdf = "0.14.2"
