@@ -1,15 +1,15 @@
 use axum::{
-    Router,
+    Json, Router,
     body::Body,
     extract::Request,
     extract::{DefaultBodyLimit, Multipart},
     http::{Response, StatusCode, header::AUTHORIZATION},
     middleware::{self, Next},
     response::IntoResponse,
-    routing::post,
+    routing::{get, post},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_http::limit::RequestBodyLimitLayer;
 use typst::foundations::{Bytes, Dict, IntoValue};
@@ -33,9 +33,12 @@ async fn main() {
     if let Some(token) = token {
         app = app.layer(middleware::from_fn_with_state(token, auth_middleware));
     }
-    let app = app.layer(DefaultBodyLimit::disable()).layer(
-        RequestBodyLimitLayer::new(250 * 1024 * 1024, /* 250mb */),
-    );
+    let app = app
+        .route("/version", get(version))
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(
+            250 * 1024 * 1024, /* 250mb */
+        ));
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
         .await
         .unwrap();
@@ -65,6 +68,10 @@ async fn auth_middleware(
     }
 
     Ok(next.run(request).await)
+}
+
+async fn version() -> impl IntoResponse {
+    Json(json!({ "version": env!("CARGO_PKG_VERSION") }))
 }
 
 async fn create_pdf(mut multipart: Multipart) -> impl IntoResponse {

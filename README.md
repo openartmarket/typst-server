@@ -24,6 +24,9 @@ credentials with a blank username and the password equal to
 disabled — the server then assumes it sits behind a reverse proxy (e.g. nginx)
 that handles auth, or runs on a trusted internal network.
 
+The `GET /version` endpoint returns `{"version":"<package-version>"}` and can
+be used as a healthcheck. It does not require authentication.
+
 The server does not write any files to disk.
 Because of this, the [#image](https://typst.app/docs/reference/visualize/image/) function
 is passed `bytes` instead of the `str` path from the `data.json` file.
