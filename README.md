@@ -18,8 +18,11 @@ browser, build the multipart body programmatically
 (`FormData.append("any-name", blob, "lib/util.typ")`); browsers strip
 directory components from `<input type=file>` filenames per RFC 7578.
 
-The server expects Basic Auth credentials with a blank username
-and the password equal to `$TYPST_SERVER_TOKEN` defined on startup.
+If `TYPST_SERVER_TOKEN` is set on startup, the server requires Basic Auth
+credentials with a blank username and the password equal to
+`$TYPST_SERVER_TOKEN`. If `TYPST_SERVER_TOKEN` is not set, authentication is
+disabled — the server then assumes it sits behind a reverse proxy (e.g. nginx)
+that handles auth, or runs on a trusted internal network.
 
 The server does not write any files to disk.
 Because of this, the [#image](https://typst.app/docs/reference/visualize/image/) function

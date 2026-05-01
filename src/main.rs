@@ -19,16 +19,23 @@ use typst_as_lib::{TypstEngine, typst_kit_options::TypstKitFontOptions};
 async fn main() {
     let host = std::env::var("HOST").unwrap_or("0.0.0.0".to_string());
     let port = std::env::var("PORT").unwrap_or("3009".to_string());
+    let token = std::env::var("TYPST_SERVER_TOKEN").ok();
 
-    println!("typst-server running on http://{}:{}", host, port);
+    match &token {
+        Some(_) => println!("typst-server running on http://{}:{} (auth enabled)", host, port),
+        None => println!(
+            "typst-server running on http://{}:{} (auth disabled — TYPST_SERVER_TOKEN not set)",
+            host, port
+        ),
+    }
 
-    let app = Router::new()
-        .route("/", post(create_pdf))
-        .layer(middleware::from_fn(auth_middleware))
-        .layer(DefaultBodyLimit::disable())
-        .layer(RequestBodyLimitLayer::new(
-            250 * 1024 * 1024, /* 250mb */
-        ));
+    let mut app = Router::new().route("/", post(create_pdf));
+    if let Some(token) = token {
+        app = app.layer(middleware::from_fn_with_state(token, auth_middleware));
+    }
+    let app = app.layer(DefaultBodyLimit::disable()).layer(
+        RequestBodyLimitLayer::new(250 * 1024 * 1024, /* 250mb */),
+    );
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
         .await
         .unwrap();
@@ -36,16 +43,10 @@ async fn main() {
 }
 
 async fn auth_middleware(
+    axum::extract::State(token): axum::extract::State<String>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, (StatusCode, &'static str)> {
-    let token = std::env::var("TYPST_SERVER_TOKEN").map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "TYPST_SERVER_TOKEN is not defined",
-        )
-    })?;
-
     let auth_header = request
         .headers()
         .get(AUTHORIZATION)
