@@ -27,6 +27,26 @@ that handles auth, or runs on a trusted internal network.
 The `GET /version` endpoint returns `{"version":"<package-version>"}` and can
 be used as a healthcheck. It does not require authentication.
 
+## Compile errors
+
+A template that fails to compile returns `500` with a plain-text report giving
+the file, line and column of each error, plus a source excerpt — the same
+information the `typst` CLI prints:
+
+```
+error: unexpected argument
+  --> document.typ:1720:316
+   |
+   | …$alpha_("m") = sqrt(0,5 lr(1 + 1 / m))$…
+   |
+```
+
+Hints and the call trace are included when Typst supplies them. Long lines are
+truncated to a window around the offending column.
+
+The main file is named after the `template` part's filename if the client sends
+one, and `main.typ` otherwise.
+
 The server does not write any files to disk.
 Because of this, the [#image](https://typst.app/docs/reference/visualize/image/) function
 is passed `bytes` instead of the `str` path from the `data.json` file.

@@ -38,12 +38,23 @@ The server never exposes file paths to Typst. Instead, `json_to_typst_value` / `
 
 Top-level JSON that isn't an object is wrapped as `{ data: <value> }`.
 
+### Compile diagnostics
+
+Typst reports positions as an opaque `Span` — a packed file id plus a *number*, not a byte offset. Printing the diagnostic with `{:?}` therefore yields something like `Span(282967367485431)`, which cannot be turned back into a location without the parsed sources that produced it. Only a numbered `Source` can resolve it (`Source::range`); raw byte ranges (`Span::range`) exist solely for non-Typst files.
+
+So `create_pdf` builds the `Source` values itself, keeps them in a `HashMap<FileId, Source>`, and hands those same values to the engine — reusing one object guarantees the span numbering matches. `format_diagnostics` then renders `file:line:column` with a source excerpt, close to what the `typst` CLI prints, including hints and the call trace.
+
+Excerpts are windowed to `MAX_EXCERPT_CHARS` around the offending column, because generated documents routinely have lines thousands of characters long.
+
+The main file is named after the uploaded `template` part's filename when the client sends one, falling back to `main.typ`. This affects diagnostics only.
+
 ### Auth
 
 `auth_middleware` is only layered on when `TYPST_SERVER_TOKEN` is set. It expects HTTP Basic Auth with a blank username and the token as password (`--user ":$TOKEN"`). With no token set, auth is disabled entirely (assumes a trusted network / reverse proxy). `GET /version` is registered *after* the auth layer, so it is always unauthenticated and serves as the healthcheck.
 
 ## Gotchas
 
-- The handler uses `.unwrap()` on multipart parsing — malformed multipart bodies will panic the request task rather than return a 4xx. Compilation/JSON errors *are* handled and returned as status codes.
+- Bad input is answered, not panicked on: malformed multipart bodies, unreadable fields, invalid JSON, and a missing template/data part all return `400` with a message. A part with no name is not an error — it can still be classified by content type or filename.
+- Failure to bind the port exits with a one-line message on stderr and status 1, rather than a panic backtrace. `AddrInUse` (a server already running) is the common case.
 - Request body limit is 250 MB (`RequestBodyLimitLayer`), with axum's `DefaultBodyLimit` disabled.
 - Fonts: system fonts and typst-kit embedded fonts are both enabled in addition to uploaded fonts.
